@@ -1,53 +1,39 @@
-#include <Arduino.h>
+#include "AIS_NB_BC95.h"
 
-#if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega168__)      // Arduino UNO
-    #include <AltSoftSerial.h>
-    AltSoftSerial bc95serial;
-#elif defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)   // Arduino MEGA2560
-    #define bc95serial Serial1
-#endif
+String serverIP = "35.230.122.14";
+String serverPort = "7000"; 
 
-#include "BC95Udp.h"
+String udpData = "HelloWorld";
 
-BC95UDP client;
+AIS_NB_BC95 AISnb;
 
-char payload[32];
+const long interval = 5000;  //millisecond
+unsigned long previousMillis = 0;
 
-void setup() {
+void setup()
+{ 
+  AISnb.debug = true;
+  
+  Serial.begin(9600);
+ 
+  AISnb.setupDevice(serverPort);
 
-    client.begin(7000);
-    client.beginPacket("35.230.122.14",7000);
-    
-    bc95serial.begin(9600);
-    BC95.begin(bc95serial);
-    BC95.reset();
-    
-    Serial.begin(9600);
-    Serial.println(F("Microgear Arduino NB-IoT Start!"));
-    Serial.print(F("IMEI: "));
-    Serial.println(BC95.getIMEI());
-    Serial.print(F("IMSI: "));
-    Serial.println(BC95.getIMSI());
+  String ip1 = AISnb.getDeviceIP();  
+  delay(1000);
+  
+  pingRESP pingR = AISnb.pingIP(serverIP);
+  previousMillis = millis();
 
-    Serial.print(F("Attach Network..."));
-    while (!BC95.attachNetwork()) {
-        Serial.print(".");
-        delay(1000);
+}
+void loop()
+{ 
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= interval)
+    {
+      UDPSend udp = AISnb.sendUDPmsgStr(serverIP, serverPort, udpData);
+      previousMillis = currentMillis;
     }
-    Serial.println(F("\nNB-IOT attached!"));
-    Serial.print(F("RSSI: "));
-    Serial.println(BC95.getSignalStrength());
-    Serial.print(F("IPAddress: "));
-    Serial.println(BC95.getIPAddress());
-    client.write("Connected",8);
+  UDPReceive resp = AISnb.waitResponse();
 }
 
-void loop() {
-    if(client.available()){
-       client.write("Hello",4);
-    }
-    Serial.print(F("Sent Signal Strength: "));
-    Serial.println(BC95.getSignalStrength());
 
-    delay(1000);
-}
